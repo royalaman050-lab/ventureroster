@@ -1,0 +1,399 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VentureRoster | Admin Panel</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f3f6fb;color:#172033;font-family:Inter,Arial,sans-serif}
+button,input{font:inherit}
+button{cursor:pointer}
+.layout{display:flex;min-height:100vh}
+.sidebar{width:240px;background:#101d38;color:white;padding:28px 18px;flex-shrink:0}
+.brand{font-size:22px;font-weight:800;margin:0 0 8px}
+.brand span{color:#60a5fa}
+.side-label{font-size:11px;letter-spacing:1.5px;color:#94a3b8;margin:32px 10px 12px}
+.nav{display:block;padding:13px 14px;border-radius:10px;color:#cbd5e1;margin:5px 0;font-size:14px}
+.nav.active{background:#263b60;color:white}
+.main{flex:1;min-width:0;padding:30px}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:28px}
+.topbar h1{margin:0;font-size:27px;letter-spacing:-.7px}
+.muted{color:#64748b;font-size:13px;line-height:1.6}
+.btn{border:0;border-radius:9px;padding:11px 15px;font-weight:700;font-size:13px}
+.btn-blue{background:#2563eb;color:white}
+.btn-light{background:white;color:#334155;border:1px solid #dbe3ef}
+.btn-red{background:#fee2e2;color:#b91c1c}
+.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:28px}
+.stat{background:white;padding:21px;border:1px solid #e5eaf2;border-radius:15px}
+.stat-label{font-size:13px;color:#64748b}
+.stat-number{display:block;font-size:29px;font-weight:800;margin:12px 0 5px}
+.stat-note{font-size:12px;color:#94a3b8}
+.panel{background:white;border:1px solid #e5eaf2;border-radius:16px;overflow:hidden}
+.panel-head{padding:22px;display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap;border-bottom:1px solid #edf0f5}
+.panel-head h2{font-size:18px;margin:0 0 5px}
+.filters{display:flex;gap:10px;flex-wrap:wrap}
+.filters input,.filters select{padding:11px;border:1px solid #dbe3ef;border-radius:9px;background:white;min-width:130px;max-width:100%;color:#172033}
+.table-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:780px;text-align:left}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:#64748b;background:#f8fafc}
+th,td{padding:16px 18px;border-bottom:1px solid #edf0f5;font-size:13px;vertical-align:top}
+td{color:#334155}
+.name{font-weight:750;color:#172033;font-size:14px}
+.sub{font-size:12px;color:#64748b;margin-top:5px;max-width:240px;white-space:normal;line-height:1.5}
+.badge{display:inline-block;padding:6px 9px;border-radius:20px;font-size:11px;font-weight:750;text-transform:capitalize}
+.pending{background:#fef3c7;color:#92400e}
+.approved{background:#dcfce7;color:#166534}
+.rejected{background:#fee2e2;color:#991b1b}
+.actions{display:flex;gap:6px;flex-wrap:wrap}
+.actions .btn{padding:8px 10px}
+.message{padding:20px;color:#64748b;font-size:14px}
+.login-wrap{max-width:420px;margin:8vh auto;padding:28px;background:white;border:1px solid #e5eaf2;border-radius:18px;box-shadow:0 10px 35px #0f172a0c}
+.login-wrap h1{font-size:25px;margin-top:0}
+.field{display:block;width:100%;padding:13px;border:1px solid #dbe3ef;border-radius:9px;margin:8px 0 16px}
+label{font-size:13px;font-weight:650}
+.login-wrap .btn{width:100%}
+#loginMessage{font-size:13px;line-height:1.6;margin-top:12px;color:#b91c1c}
+#detailModal{position:fixed;inset:0;background:#0f172a99;display:none;align-items:center;justify-content:center;padding:18px;z-index:5}
+.modal-box{background:white;border-radius:16px;max-width:580px;width:100%;max-height:85vh;overflow:auto;padding:24px}
+.modal-box h2{margin-top:0}
+.detail-row{padding:12px 0;border-bottom:1px solid #edf0f5;overflow-wrap:anywhere}
+.detail-row strong{display:block;font-size:12px;color:#64748b;margin-bottom:5px}
+@media(max-width:950px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.sidebar{width:200px}.main{padding:22px}}
+@media(max-width:650px){.layout{display:block}.sidebar{width:100%;padding:18px}.brand{font-size:20px}.side-label{margin:17px 8px 8px}.nav{display:inline-block;padding:9px 12px}.main{padding:17px 12px}.topbar h1{font-size:23px}.cards{gap:9px}.stat{padding:14px}.stat-number{font-size:25px}.stat-label{font-size:12px}.panel-head{padding:15px}.filters{width:100%}.filters input,.filters select{width:100%}}
+</style>
+</head>
+<body>
+
+<div id="loginScreen" class="login-wrap">
+  <h1>Venture<span style="color:#2563eb">Roster</span></h1>
+  <p class="muted">Admin Panel · Sign in to manage instructors</p>
+  <form id="adminLoginForm">
+    <label for="adminEmail">Admin email</label>
+    <input class="field" id="adminEmail" type="email" required autocomplete="username" placeholder="admin@example.com">
+    <label for="adminPassword">Password</label>
+    <input class="field" id="adminPassword" type="password" required autocomplete="current-password" placeholder="Your password">
+    <button class="btn btn-blue" type="submit">Sign in to dashboard</button>
+  </form>
+  <p id="loginMessage"></p>
+</div>
+
+<div id="adminApp" class="layout" style="display:none">
+  <aside class="sidebar">
+    <div class="brand">Venture<span>Roster</span></div>
+    <div class="muted" style="color:#94a3b8">Administration</div>
+    <div class="side-label">WORKSPACE</div>
+    <div class="nav active">▦ &nbsp; Overview & Instructors</div>
+    <div class="side-label">ACCOUNT</div>
+    <button id="logoutBtn" class="btn" style="background:#263b60;color:white;width:100%;text-align:left">↪ &nbsp; Logout</button>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <h1>Instructor Management</h1>
+        <p class="muted">Review applications and manage instructor profiles.</p>
+      </div>
+      <button id="refreshBtn" class="btn btn-blue">↻ Refresh data</button>
+    </header>
+
+    <section class="cards">
+      <div class="stat"><span class="stat-label">Total instructors</span><strong id="totalCount" class="stat-number">—</strong><span class="stat-note">All profiles</span></div>
+      <div class="stat"><span class="stat-label">Pending</span><strong id="pendingCount" class="stat-number">—</strong><span class="stat-note">Awaiting review</span></div>
+      <div class="stat"><span class="stat-label">Approved</span><strong id="approvedCount" class="stat-number">—</strong><span class="stat-note">Approved profiles</span></div>
+      <div class="stat"><span class="stat-label">Rejected</span><strong id="rejectedCount" class="stat-number">—</strong><span class="stat-note">Rejected profiles</span></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Instructor applications</h2>
+          <div class="muted">View details and update application status.</div>
+        </div>
+        <div class="filters">
+          <input id="searchInput" type="search" placeholder="Search name or location">
+          <select id="statusFilter">
+            <option value="all">All statuses</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Instructor</th><th>Role & location</th><th>Experience</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="instructorRows"><tr><td colspan="5" class="message">Loading instructor profiles...</td></tr></tbody>
+        </table>
+      </div>
+      <div id="tableMessage" class="message" aria-live="polite"></div>
+    </section>
+  </main>
+</div>
+
+<div id="detailModal">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:center">
+      <h2>Instructor details</h2>
+      <button id="closeModal" class="btn btn-light" type="button">Close</button>
+    </div>
+    <div id="detailContent"></div>
+  </div>
+</div>
+
+<script>
+/* Use the SAME project URL and publishable/anon key as index.html.
+   Never put a service_role or secret key in browser code. */
+const SUPABASE_URL = "https://lkmfulfzqvulhlmwawqz.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_ITIRY7l7Dt1Uv3e53_gP0w_yjr1UcOc";
+
+const client = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY
+);
+
+const $ = id => document.getElementById(id);
+let allProfiles = [];
+
+function setLoginMessage(text) {
+  $("loginMessage").textContent = text;
+}
+
+function showAdminApp(show) {
+  $("loginScreen").style.display = show ? "none" : "block";
+  $("adminApp").style.display = show ? "flex" : "none";
+}
+
+async function verifyAdmin() {
+  const { data: auth, error: authError } = await client.auth.getUser();
+  if (authError || !auth.user) {
+    showAdminApp(false);
+    return false;
+  }
+
+  const { data: isAdmin, error } = await client.rpc("vr_is_admin");
+  if (error || isAdmin !== true) {
+    showAdminApp(false);
+    setLoginMessage("This account does not have admin access. Sign in with your authorized admin account.");
+    await client.auth.signOut();
+    return false;
+  }
+
+  showAdminApp(true);
+  return true;
+}
+
+$("adminLoginForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  const email = $("adminEmail").value.trim();
+  const password = $("adminPassword").value;
+  $("adminLoginForm").querySelector("button").disabled = true;
+  setLoginMessage("Signing in...");
+
+  try {
+    const { error } = await client.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    if (await verifyAdmin()) {
+      setLoginMessage("");
+      await loadProfiles();
+    }
+  } catch (error) {
+    setLoginMessage(error.message || "Login failed.");
+  } finally {
+    $("adminLoginForm").querySelector("button").disabled = false;
+  }
+});
+
+async function loadProfiles() {
+  $("instructorRows").innerHTML =
+    '<tr><td colspan="5" class="message">Loading profiles...</td></tr>';
+  $("tableMessage").textContent = "";
+
+  try {
+    const { data, error } = await client
+      .from("instructor_profiles")
+      .select("id,full_name,adventure_role,location,experience_years,skills,bio,photo_url,status,created_at")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    allProfiles = data || [];
+
+    $("totalCount").textContent = allProfiles.length;
+    $("pendingCount").textContent = allProfiles.filter(p => p.status === "pending").length;
+    $("approvedCount").textContent = allProfiles.filter(p => p.status === "approved").length;
+    $("rejectedCount").textContent = allProfiles.filter(p => p.status === "rejected").length;
+    renderProfiles();
+  } catch (error) {
+    $("instructorRows").innerHTML =
+      '<tr><td colspan="5" class="message">Could not load profiles.</td></tr>';
+    $("tableMessage").textContent =
+      "Database error: " + (error.message || "Please check your Supabase permissions.");
+  }
+}
+
+function addCell(row, text) {
+  const cell = document.createElement("td");
+  cell.textContent = text;
+  row.appendChild(cell);
+  return cell;
+}
+
+function renderProfiles() {
+  const query = $("searchInput").value.trim().toLowerCase();
+  const status = $("statusFilter").value;
+
+  const profiles = allProfiles.filter(p => {
+    const matchesStatus = status === "all" || p.status === status;
+    const haystack = [p.full_name, p.location, p.adventure_role]
+      .filter(Boolean).join(" ").toLowerCase();
+    return matchesStatus && haystack.includes(query);
+  });
+
+  $("instructorRows").replaceChildren();
+
+  if (!profiles.length) {
+    $("instructorRows").innerHTML =
+      '<tr><td colspan="5" class="message">No matching instructor profiles found.</td></tr>';
+    return;
+  }
+
+  profiles.forEach(profile => {
+    const row = document.createElement("tr");
+
+    const personCell = document.createElement("td");
+    const name = document.createElement("div");
+    name.className = "name";
+    name.textContent = profile.full_name || "Unnamed instructor";
+    personCell.appendChild(name);
+
+    const date = document.createElement("div");
+    date.className = "sub";
+    date.textContent = profile.created_at
+      ? "Joined " + new Date(profile.created_at).toLocaleDateString()
+      : "";
+    personCell.appendChild(date);
+    row.appendChild(personCell);
+
+    const roleCell = document.createElement("td");
+    roleCell.textContent = profile.adventure_role || "Not provided";
+    const location = document.createElement("div");
+    location.className = "sub";
+    location.textContent = profile.location || "Location not provided";
+    roleCell.appendChild(location);
+    row.appendChild(roleCell);
+
+    addCell(row, (profile.experience_years ?? 0) + " years");
+
+    const statusCell = addCell(row, "");
+    const badge = document.createElement("span");
+    badge.className = "badge " + (profile.status || "pending");
+    badge.textContent = profile.status || "pending";
+    statusCell.appendChild(badge);
+
+    const actionsCell = document.createElement("td");
+    actionsCell.className = "actions";
+
+    const detailsBtn = document.createElement("button");
+    detailsBtn.className = "btn btn-light";
+    detailsBtn.textContent = "Details";
+    detailsBtn.addEventListener("click", () => showDetails(profile));
+    actionsCell.appendChild(detailsBtn);
+
+    if (profile.status !== "approved") {
+      actionsCell.appendChild(makeStatusButton(profile, "approved", "Approve", "btn-blue"));
+    }
+    if (profile.status !== "rejected") {
+      actionsCell.appendChild(makeStatusButton(profile, "rejected", "Reject", "btn-red"));
+    }
+
+    row.appendChild(actionsCell);
+    $("instructorRows").appendChild(row);
+  });
+}
+
+function makeStatusButton(profile, status, label, className) {
+  const button = document.createElement("button");
+  button.className = "btn " + className;
+  button.textContent = label;
+  button.addEventListener("click", async () => {
+    if (!confirm(label + " " + (profile.full_name || "this instructor") + "?")) return;
+    button.disabled = true;
+
+    try {
+      const { error } = await client.from("instructor_profiles")
+        .update({ status }).eq("id", profile.id);
+      if (error) throw error;
+      await loadProfiles();
+    } catch (error) {
+      alert("Could not update status: " + error.message);
+      button.disabled = false;
+    }
+  });
+  return button;
+}
+
+function addDetail(label, value) {
+  const item = document.createElement("div");
+  item.className = "detail-row";
+  const heading = document.createElement("strong");
+  heading.textContent = label;
+  const content = document.createElement("div");
+  content.textContent = value || "Not provided";
+  item.append(heading, content);
+  $("detailContent").appendChild(item);
+}
+
+function showDetails(profile) {
+  $("detailContent").replaceChildren();
+  addDetail("Full name", profile.full_name);
+  addDetail("Adventure role", profile.adventure_role);
+  addDetail("Location", profile.location);
+  addDetail("Experience", (profile.experience_years ?? 0) + " years");
+  addDetail("Skills", (profile.skills || []).join(", "));
+  addDetail("About", profile.bio);
+  addDetail("Status", profile.status);
+  addDetail("Applied on", profile.created_at ? new Date(profile.created_at).toLocaleString() : "");
+  $("detailModal").style.display = "flex";
+}
+
+$("closeModal").addEventListener("click", () => {
+  $("detailModal").style.display = "none";
+});
+$("detailModal").addEventListener("click", event => {
+  if (event.target === $("detailModal")) $("detailModal").style.display = "none";
+});
+$("searchInput").addEventListener("input", renderProfiles);
+$("statusFilter").addEventListener("change", renderProfiles);
+$("refreshBtn").addEventListener("click", loadProfiles);
+
+$("logoutBtn").addEventListener("click", async () => {
+  $("logoutBtn").disabled = true;
+  try {
+    const { error } = await client.auth.signOut();
+    if (error) throw error;
+    allProfiles = [];
+    showAdminApp(false);
+    $("adminLoginForm").reset();
+    setLoginMessage("Logged out successfully.");
+  } catch (error) {
+    alert("Logout failed: " + error.message);
+  } finally {
+    $("logoutBtn").disabled = false;
+  }
+});
+
+client.auth.onAuthStateChange((event, session) => {
+  if (!session) showAdminApp(false);
+  else if (event === "SIGNED_IN") setTimeout(async () => {
+    if (await verifyAdmin()) await loadProfiles();
+  }, 0);
+});
+
+(async () => {
+  if (await verifyAdmin()) await loadProfiles();
+})();
+</script>
+</body>
+</html>
